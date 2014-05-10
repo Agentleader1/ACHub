@@ -2,7 +2,6 @@ package alohacraft.achub.main;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -31,8 +30,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class Main extends JavaPlugin implements Listener {
 
 	public final Logger logger = Logger.getLogger("Minecraft");
-	HashMap<String, Boolean> pvp = new HashMap<String, Boolean>();
-
+	public ArrayList<Player> pvping = new ArrayList<Player>();
+	public ArrayList<Player> disabling = new ArrayList<Player>();
+	
 	@Override
 	public void onDisable() {
 		logger.info("ACHub is now deaf!");
@@ -45,19 +45,15 @@ public class Main extends JavaPlugin implements Listener {
 			this.saveDefaultConfig();
 		}
 		getServer().getPluginManager().registerEvents(this, this);
-		dayTimer();
 	}
 	@SuppressWarnings("deprecation")
 	@EventHandler
 	public void onPlayerRespawn(PlayerRespawnEvent e){
-		Player player = (Player) e.getPlayer();
-		pvp.put(player.getName(), false);
-		List<String> s = new ArrayList<String>();
-		s.add("PvP: Disabled");
+		Player player = e.getPlayer();
+		pvping.remove(player);
 		ItemStack pvptoggle = new ItemStack(Material.ARROW);
 		ItemMeta pvptogglemeta = pvptoggle.getItemMeta();
-		pvptogglemeta.setDisplayName(ChatColor.DARK_RED + "Toggle PvP");
-		pvptogglemeta.setLore(s);
+		pvptogglemeta.setDisplayName(ChatColor.BLUE + "PVP- " + ChatColor.DARK_RED + "Disabled");
 		pvptoggle.setItemMeta(pvptogglemeta);
 		player.getInventory().clear();
 		player.getInventory().setHelmet(new ItemStack(0));
@@ -73,13 +69,10 @@ public class Main extends JavaPlugin implements Listener {
 	public void OnPlayerJoin(PlayerJoinEvent event) {
 		Player p = (Player) event.getPlayer();
 		p.teleport(getServer().getWorld("world").getSpawnLocation());
-		pvp.put(p.getName(), false);
-		List<String> s = new ArrayList<String>();
-		s.add("PvP: Disabled");
+		pvping.remove(p);
 		ItemStack pvptoggle = new ItemStack(Material.ARROW);
 		ItemMeta pvptogglemeta = pvptoggle.getItemMeta();
-		pvptogglemeta.setDisplayName(ChatColor.DARK_RED + "Toggle PvP");
-		pvptogglemeta.setLore(s);
+		pvptogglemeta.setDisplayName(ChatColor.BLUE + "PvP- " + ChatColor.DARK_RED + "Disabled");
 		pvptoggle.setItemMeta(pvptogglemeta);
 		
 		List<String> x = new ArrayList<String>();
@@ -108,14 +101,17 @@ public class Main extends JavaPlugin implements Listener {
 			if (player.getWorld().getName().equalsIgnoreCase("world")) {
 				event.setFoodLevel(20);
 			}
+			event.setCancelled(true);
 		}
 	}
 	@EventHandler
 	public void noDrop(PlayerDeathEvent event){
-		event.getDrops().clear();
-		String killer = event.getEntity().getKiller().toString();
-		String player = event.getEntity().getName().toString();
-		Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + ChatColor.DARK_RED + "Hub" + ChatColor.DARK_GRAY + "]: " + ChatColor.GRAY + "Player " + ChatColor.DARK_RED + killer + ChatColor.GRAY + " has finished " + ChatColor.DARK_RED + player + ChatColor.GRAY + "!");
+		if(event.getEntity().getKiller() instanceof Player){
+			event.getDrops().clear();
+			String killer = ((Player) event.getEntity().getKiller()).getName();
+			String player = event.getEntity().getName();
+			Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + ChatColor.DARK_RED + "Hub" + ChatColor.DARK_GRAY + "]: " + ChatColor.GRAY + "Player " + ChatColor.DARK_RED + killer + ChatColor.GRAY + " has finished " + ChatColor.DARK_RED + player + ChatColor.GRAY + "!");
+		}
 	}
 	@EventHandler
 	public void hurtVoid(EntityDamageEvent e) {
@@ -144,7 +140,8 @@ public class Main extends JavaPlugin implements Listener {
 					e.setCancelled(true);
 					damager.setFlying(false);
 					damager.sendMessage(ChatColor.RED + "You can't pvp in fly, that's really unfair!");
-				} else if((pvp.get(player.getName()) == true) && (pvp.get(damager.getName()) == true)) {	
+				} else if((pvping.contains(player)) && (pvping.contains(player))) {	
+					return;
 				} else {
 					e.setCancelled(true);
 				}
@@ -167,25 +164,23 @@ public class Main extends JavaPlugin implements Listener {
 		if ((e.getAction() == Action.RIGHT_CLICK_AIR) || (e.getAction() == Action.RIGHT_CLICK_BLOCK)) {
 			Player player = (Player) e.getPlayer();
 			if (player.getItemInHand().getItemMeta().getDisplayName().equals(ChatColor.DARK_RED + "Toggle PvP")) { //ENABLING PVP
-				if(pvp.get(player.getName()) == false) {
+				if(pvping.contains(player)) {
 					//Disables PvP
-					List<String> s = new ArrayList<String>();
-					s.add("PvP: Enabled");
 					ItemStack pvptoggle = new ItemStack(Material.ARROW);
 					ItemMeta pvptogglemeta = pvptoggle.getItemMeta();
-					pvptogglemeta.setDisplayName(ChatColor.RED + "Toggle PvP");
-					pvptogglemeta.setLore(s);
+					pvptogglemeta.setDisplayName(ChatColor.BLUE + "PvP- " + ChatColor.DARK_RED + "Disabled");
 					pvptoggle.setItemMeta(pvptogglemeta);
 					//Enables PvP
 					List<String> ss = new ArrayList<String>();
 					ss.add("PvP: Disabled");
 					ItemStack pvpptoggle = new ItemStack(Material.ARROW);
 					ItemMeta pvpptogglemeta = pvpptoggle.getItemMeta();
-					pvpptogglemeta.setDisplayName(ChatColor.DARK_RED + "Toggle PvP");
+					pvpptogglemeta.setDisplayName(ChatColor.BLUE + "PvP- " + ChatColor.GREEN + "Enabled");
 					pvpptogglemeta.setLore(ss);
 					pvpptoggle.setItemMeta(pvpptogglemeta);
 
-					pvp.put(player.getName(), true);
+					pvping.add(player);
+					disabling.remove(player);
 					player.getInventory().setHelmet(new ItemStack(Material.IRON_HELMET, 1));
 					player.getInventory().setChestplate(new ItemStack(Material.IRON_CHESTPLATE, 1));
 					player.getInventory().setLeggings(new ItemStack(Material.IRON_LEGGINGS, 1));
@@ -200,24 +195,27 @@ public class Main extends JavaPlugin implements Listener {
 					player.sendMessage(ChatColor.RED + "You need to wait til your pvp is disabled!");
 				}
 					player.updateInventory();
-			} else if (player.getItemInHand().getItemMeta().getDisplayName().equals(ChatColor.RED + "Toggle PvP")) { //DISABLING PVP
-				player.sendMessage(ChatColor.GREEN + "PvP is disabling in 3 seconds!");
-				tpDelay(player);
+			} else if (player.getItemInHand().getType() == Material.ARROW && (!disabling.contains(player))) { //DISABLING PVP
+				if(!(disabling.contains(player)))
+					player.sendMessage(ChatColor.GREEN + "PvP is disabling in 3 seconds!");
+					tpDelay(player);
 			} else if (player.getItemInHand().getItemMeta().getDisplayName().equals(ChatColor.AQUA + "SnowGun")) {
 				player.launchProjectile(Snowball.class);
 				player.playSound(player.getLocation(), Sound.CAT_MEOW, 1, 1);;
 			}
 		}
 	}
+	/* **UNNESSCARY** Do /gamerule doDaylightCycle false in-game.
 	public void dayTimer() {
 		getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
 			public void run() {
 				getServer().getWorld("world").setTime(0L);
 			}
 		}, 0, 300 * 20);
-	}
+	}*/
 	@SuppressWarnings("deprecation")
 	private void tpDelay(final Player player){
+		disabling.add(player);
 		Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 			public void run() {
 				player.getInventory().setHelmet(new ItemStack(0));
@@ -225,27 +223,24 @@ public class Main extends JavaPlugin implements Listener {
 				player.getInventory().setLeggings(new ItemStack(0));
 				player.getInventory().setBoots(new ItemStack(0));
 				//Enables PvP
-				List<String> s = new ArrayList<String>();
-				s.add("PvP: Disabled");
+				/*List<String> s = new ArrayList<String>();
+				s.add("PvP: Disabled");*/
 				ItemStack pvptoggle = new ItemStack(Material.ARROW);
 				ItemMeta pvptogglemeta = pvptoggle.getItemMeta();
-				pvptogglemeta.setDisplayName(ChatColor.DARK_RED + "Toggle PvP");
-				pvptogglemeta.setLore(s);
+				pvptogglemeta.setDisplayName(ChatColor.BLUE + "PvP- " + ChatColor.GREEN + "Enabled");
 				pvptoggle.setItemMeta(pvptogglemeta);
 				//Disables PvP
-				List<String> ss = new ArrayList<String>();
-				ss.add("PvP: Enabled");
 				ItemStack pvpptoggle = new ItemStack(Material.ARROW);
 				ItemMeta pvpptogglemeta = pvpptoggle.getItemMeta();
-				pvpptogglemeta.setDisplayName(ChatColor.RED + "Toggle PvP");
-				pvpptogglemeta.setLore(ss);
+				pvpptogglemeta.setDisplayName(ChatColor.BLUE + "PvP- " + ChatColor.DARK_RED + "Disabled");
 				pvpptoggle.setItemMeta(pvpptogglemeta);
-				pvp.put(player.getName(), false);
+				pvping.remove(player);
+				disabling.remove(player);
 				if(player.getInventory().contains(pvpptoggle)) {
 					player.getInventory().remove(pvpptoggle);
 				}
-				if(player.getInventory().contains(new ItemStack(Material.DIAMOND_SWORD, 1))) {
-					player.getInventory().remove(new ItemStack(Material.DIAMOND_SWORD, 1));
+				if(player.getInventory().contains(new ItemStack(Material.DIAMOND_SWORD))) {
+					player.getInventory().remove(new ItemStack(Material.DIAMOND_SWORD));
 				}
 				player.getInventory().addItem(pvptoggle);
 				player.sendMessage(ChatColor.GREEN + "PvP Disabled!");
